@@ -130,19 +130,19 @@ int main(void){
   
   //CORRER LA SIMULACION
   //Inicie Animación
-  InicieAnimacion(Xmax, Pmax);
+  // InicieAnimacion(Xmax, Pmax);
 
-  //Graficar estático para ver la condición inicial microcanónica estática
-  for(t=0,tdibujo=0; t<tmax; t+=Deltat,tdibujo+=Deltat){
-    //Graficar
-    if(tdibujo > tmax/ndibujos){
-      InicieCuadro();
-      for(i=0; i<N-1; i++){Resorte[i].Dibujese(false);}
-      Resorte[N-1].Dibujese(true);
-      TermineCuadro();
-      tdibujo=0;
-    }
-  }
+  // //Graficar estático para ver la condición inicial microcanónica estática
+  // for(t=0,tdibujo=0; t<tmax; t+=Deltat,tdibujo+=Deltat){
+  //   //Graficar
+  //   if(tdibujo > tmax/ndibujos){
+  //     InicieCuadro();
+  //     for(i=0; i<N-1; i++){Resorte[i].Dibujese(false);}
+  //     Resorte[N-1].Dibujese(true);
+  //     TermineCuadro();
+  //     tdibujo=0;
+  //   }
+  // }
   //AHORA SÍ, CORRE LA SIMULACIÓN 
   //Multiplicar los resortes
   for(c_multiplicar=0;c_multiplicar<N_multiplicar;c_multiplicar++){
@@ -155,14 +155,14 @@ int main(void){
     for(t=0,tdibujo=0; t<tmax; t+=Deltat,tdibujo+=Deltat){
       //Graficar
       
-      if(tdibujo > tmax/ndibujos){
-	InicieCuadro();
-	for(i=0; i<N-1; i++){Resorte[i].Dibujese(false);}
-	Resorte[N-1].Dibujese(true);
-	TermineCuadro();
-	tdibujo=0;
-      }
-      
+	//      if(tdibujo > tmax/ndibujos){
+	// InicieCuadro();
+	// for(i=0; i<N-1; i++){Resorte[i].Dibujese(false);}
+	// Resorte[N-1].Dibujese(true);
+	// TermineCuadro();
+	// tdibujo=0;
+	//      }
+     
       // Evolucionar los resortes
       if(t>0){ //para que inicie quieto
 	for(i=0; i<N; i++){
@@ -182,43 +182,10 @@ int main(void){
       }
     }
   }
-  //IMPRIMIR
-  /*
-    //Calcular la desviación estándar en x
-  double xprom,x2prom,sigma_x;
-  //Calculo xprom
-  for(xprom=0,i=0; i<N; i++)
-    xprom+=Resorte[i].Getx();
-  xprom/=N;
-  //Calculo x2prom
-  for(x2prom=0,i=0; i<N; i++)
-    x2prom+=pow(Resorte[i].Getx(),2.0);
-  x2prom/=N;
-  //Calculo sigma_x
-  sigma_x=sqrt(x2prom-xprom*xprom);
-  //Imprimir sigma_x
-  cout<<"sigma_x(computacional)="<<sigma_x<<endl;
 
-  
-  //Calcular la desviación estándar en xp
-  double pprom,p2prom,sigma_p;
-  //Calculo xprom
-  for(pprom=0,i=0; i<N; i++)
-    pprom+=Resorte[i].GetPx();
-  pprom/=N;
-  //Calculo x2prom
-  for(p2prom=0,i=0; i<N; i++)
-    p2prom+=pow(Resorte[i].GetPx(),2.0);
-  p2prom/=N;
-  //Calculo sigma_p
-  sigma_p=sqrt(p2prom-pprom*pprom);
-  //Imprimir sigma_p
-  cout<<"sigma_p(computacional)="<<sigma_p<<endl;
+  for (auto resorte: Resorte){
+		std::cout << resorte.Getx() << endl;		
+  }
 
-*/
-  /*
-  for(i=0; i<N; i++)
-    cout<<Resorte[i].Getx()<<endl;
-  */
   return 0;
 }

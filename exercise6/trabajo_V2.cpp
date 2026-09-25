@@ -20,8 +20,7 @@ private:
   double x,Vx,Fx;
   double k,m,R; 
 public:
-  void Inicie(double x0,double Vx0,double k0,double m0,double R0);
-  void CalculeFuerza(double xs);
+  void Inicie(double x0,double Vx0,double k0,double m0,double R0); void CalculeFuerza(double xs);
   void Mueva_r(double dt,double CTE);
   void Mueva_V(double dt,double CTE);
   void Dibujese(bool final);
@@ -157,7 +156,7 @@ int main(void){
     Entorno.Muevase(Deltat, ran64);
     xs=Entorno.Getx();
     //Graficar
-    if(tdibujo > tmax/ndibujos){
+    if((tdibujo > tmax/ndibujos) && (t > tmax/4)){
 	InicieCuadro();
 	for(i=0; i<N-1; i++){Resorte[i].Dibujese(false);}
 	Resorte[N-1].Dibujese(true);
