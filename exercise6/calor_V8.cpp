@@ -101,7 +101,7 @@ int main(void){
   
   //  LOS RESORTES
   Cuerpo Resorte[Nmax];
-  double MResorte=1.0, KResorte=1.0, GammaResorte=4.0/30000;
+  double MResorte=1.0, KResorte=1.0, GammaResorte=4.0/3250;
   double OmegaResorte=sqrt(MResorte/KResorte);
   double Emin=10, DeltaE=4.0,
     Xmax=sqrt(2*(Emin+DeltaE)/KResorte), Pmax=sqrt(2*MResorte*(Emin+DeltaE));
@@ -126,7 +126,7 @@ int main(void){
   double T,tmax,tdibujo;
   int c_multiplicar,N_multiplicar=3, cM,NM=3;
   int ndibujos=100;
-  T=2*M_PI/OmegaResorte;  tmax=1000*T; Deltat=T/2000;  tdibujo=tmax/ndibujos;
+  T=2*M_PI/OmegaResorte;  tmax=3./GammaResorte; Deltat=T/2000;  tdibujo=tmax/ndibujos;
   
   //CORRER LA SIMULACION
   //Inicie Animación

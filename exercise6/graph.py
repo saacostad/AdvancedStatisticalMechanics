@@ -6,7 +6,7 @@ dat_60 = np.genfromtxt("gamma60k.txt")
 dat_30 = np.genfromtxt("gamma30k.txt")
 dat_15 = np.genfromtxt("gamma15k.txt")
 dat_7 = np.genfromtxt("gamma7-5k.txt")
-dat_3 = np.genfromtxt("gamma3-75k.txt")
+dat_3 = np.genfromtxt("gamma3-25k.txt")
 
 
 colors = ["red", "orange", "purple", "magenta", "blue"]
@@ -29,7 +29,6 @@ def asd(data, name):
     plt.hist(data, alpha=0.12, histtype="stepfilled", density=True, label = f"{name} || {sigma:.2f}", color = counter, edgecolor=counter)
     plt.hist(data, alpha=0.3, histtype="step", density=True, color = counter, edgecolor=counter)
     plt.plot(x, pdf, "r-", lw=2, color = counter)
-    print(mu, sigma)
 
     count+= 1
 
@@ -40,12 +39,20 @@ asd(dat_7, "7.5K")
 asd(dat_3, "3.75K")
 
 
-plt.xlabel("Value")
-plt.ylabel("Density")
+plt.xlabel(r"$x$")
+plt.ylabel("densidad")
 plt.legend(title = r"$\gamma_{resorte}$ || $\sigma_x$")
 plt.show()
 
 
 
-plt.plot(1./gammas, sigmas)
+gamma_real = 4.0 / gammas          # actual GammaResorte values
+plt.plot(1.0/gamma_real, sigmas, 'o-', color = "black")
+plt.xlabel(r"$1/\gamma$")
+plt.ylabel(r"$\sigma_x^2$")
+plt.grid()
 plt.show()
+
+slope, intercept = np.polyfit(1.0/gamma_real, sigmas, 1)
+
+print(slope)
