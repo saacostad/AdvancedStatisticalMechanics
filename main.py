@@ -20,12 +20,12 @@ Important to notice that we have 3 different types of data:
 
 coordinates = "0N70W"
 
-data_2k, data_loss, data_mask = dp.read_coordinates(coordinates, initial_cell = (0, 0), length = 10)
+data = dp.read_coordinates(coordinates, 20, initial_cell = (0, 0), length = 4000)
 
-print(data_2k)
-print(data_loss)
-print(data_mask)
-input()
+print(data.shape)
+
+plt.imshow(data)
+plt.show()
 
 
 
