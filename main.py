@@ -5,7 +5,7 @@ This script is in charge of the main execution of the project:
 """
 import numpy as np
 import matplotlib.pyplot as plt
-import modules.data_processing as dp        # All needed functions to process the .tif images
+import modules.data_input as di        # All needed functions to process the .tif images
 
 
 
@@ -20,7 +20,7 @@ Important to notice that we have 3 different types of data:
 
 coordinates = "0N70W"
 
-data = dp.read_coordinates(coordinates, 20, initial_cell = (0, 0), length = 4000)
+data = di.read_coordinates(coordinates, 25, treshold=50, initial_cell = (0, 0), length = 4000)
 
 print(data.shape)
 
