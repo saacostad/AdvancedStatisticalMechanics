@@ -20,12 +20,13 @@ Important to notice that we have 3 different types of data:
 
 coordinates = "0N70W"
 
-data = di.read_coordinates(coordinates, 25, treshold=50, initial_cell = (0, 0), length = 4000)
+data = di.read_coordinates(coordinates, 25, treshold=50, initial_cell = (0, 0), length = 40001)
 
 print(data.shape)
+input()
 
-plt.imshow(data)
-plt.show()
+# plt.imshow(data)
+# plt.show()
 
 
 
