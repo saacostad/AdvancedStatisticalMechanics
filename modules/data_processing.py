@@ -69,18 +69,22 @@ def CreateChunk(data, initial_cord, chunk_size):
 
 #-------------------------------------------------------------------------------------------------------------------------------------------------------
 def CreateChunkData(labels):
-    """ Takes the cluster data of a chunk and returns a dictionary with the info of each cluster """
-    
-    # Count the # of pixels with a given value (clusters)
-    IDs, area = np.unique(labels, return_counts=True)
-    adjacent_pairs = [CalculateAdjacentPairs(labels, ID) for ID in IDs]
+    """ Takes the labels of a chunk and returns a dataframe with area and adjacent pairs per cluster """
+    n = int(labels.max())
 
-    # Create a pandas data-frame with the data
+    area = np.bincount(labels.ravel(), minlength=n + 1)[1:]
+
+    # Each pair counted once: right and down neighbours
+    h = (labels[:, 1:] == labels[:, :-1]) & (labels[:, 1:] != 0)
+    v = (labels[1:, :] == labels[:-1, :]) & (labels[1:, :] != 0)
+    adjacent_pairs = (np.bincount(labels[:, 1:][h], minlength=n + 1)
+                      + np.bincount(labels[1:, :][v], minlength=n + 1))[1:]
+
     return pd.DataFrame({
-        "ID": IDs.astype(int),
-        "area": area.astype(int),
-        "adjacent_pairs": adjacent_pairs,
-    }).set_index("ID").drop(0) 
+        "ID": np.arange(1, n + 1, dtype=np.int64),
+        "area": area.astype(np.int64),
+        "adjacent_pairs": adjacent_pairs.astype(np.int64),
+    }).set_index("ID")
 #-------------------------------------------------------------------------------------------------------------------------------------------------------
 
 
@@ -95,50 +99,55 @@ def ExtractBorders(labels):
 
 #-------------------------------------------------------------------------------------------------------------------------------------------------------
 def BordersCheck(border1, border2):
-    """ Takes 2 borders (numpy arrays) and returns a list of tuples with the IDs that collide with each other """
-    # Pretty straightforward no need to explain
+    """ Takes 2 aligned borders (numpy arrays) and returns an array with rows (id_a, id_b, n_contacts) """
     mask = (border1 != 0) & (border2 != 0)
-    pairs = list(zip(border1[mask], border2[mask]))
 
-    # Here I group the different 2D tuples to general tuples with all the related clusters
-    return ConnectedComponents(pairs)
+    pairs = np.stack((border1[mask], border2[mask]), axis=1).astype(np.int64)
+    uniq, counts = np.unique(pairs, axis=0, return_counts=True)
+
+    return np.column_stack((uniq, counts))          
 #-------------------------------------------------------------------------------------------------------------------------------------------------------
 
 
 
 #-------------------------------------------------------------------------------------------------------------------------------------------------------
-def MergeBordersData(chunk_data, merges, grid = False):
-    """ Takes the dataframe of all data and operates its' rows according to the relations found during the border check. 
+def MergeBordersData(chunk_data, merges, seams, grid = False):
+    """ Merges clusters according to the border relations and adds the seam contacts.
 
         INPUTS:
-        -> chunk_data: DataFrame with rows area and adjacent_pairs. The index correspond to the cluster number ID.
-        -> merges: set of tuples with integers (IDs of the chunk_data DataFrame). Every tuple indicates all the IDs are related
+        -> chunk_data: DataFrame (index = global ID) with columns area and adjacent_pairs
+        -> merges: list of tuples (output of ConnectedComponents), each one a group of related IDs
+        -> seams: N x 3 array with rows (id_a, id_b, n_contacts), from all the BordersCheck calls
 
-        RETURNS: Nothing, it just modifies the chunk_data DataFrame
+        RETURNS: DataFrame with one row per final cluster: area, adjacent_pairs, perimeter
     """
-    
-    # We'll iterate over each relation group
-    for group in merges:
-        
-        group = np.asarray(group, dtype=int) 
-        new_ID = np.max(group)  # The new ID of the whole group will be the max ID of it 
-        
-        # Sum up the rows
-        merged_row = chunk_data.loc[group].sum(numeric_only=True)
-        merged_row["ID"] = new_ID 
 
-        chunk_data = chunk_data.drop(group)
-        chunk_data.loc[new_ID] = merged_row
+    # Every ID in a group maps to the max ID of the group
+    mapping = {int(x): int(max(g)) for g in merges for x in g}
 
+    def remap(ids):
+        s = pd.Series(ids)
+        return s.map(mapping).fillna(s).astype(np.int64).to_numpy()
 
-        # For visualization: make the original 2D grid change it's labels
-        if type(grid) != bool:
-            grid[np.isin(grid, group)] = new_ID
+    # Sum area and adjacent pairs of the pieces belonging to the same final cluster
+    final_ids = remap(chunk_data.index.to_numpy())
+    merged = chunk_data[["area", "adjacent_pairs"]].groupby(final_ids).sum()
+    merged.index.name = "ID"
 
-    
-    return chunk_data 
+    # Add the contacts across the seams to the final clusters
+    if len(seams) > 0:
+        seam_adj = pd.Series(seams[:, 2]).groupby(remap(seams[:, 0])).sum()
+        merged["adjacent_pairs"] = merged["adjacent_pairs"].add(seam_adj, fill_value=0).astype(np.int64)
 
+    # For visualization: relabel the original 2D grid
+    if type(grid) != bool:
+        for group in merges:
+            grid[np.isin(grid, group)] = max(group)
 
+    # -- PERIMETER column
+    merged["perimeter"] = 4 * merged["area"] - 2 * merged["adjacent_pairs"]
+
+    return merged
 #-------------------------------------------------------------------------------------------------------------------------------------------------------
 
 
@@ -164,19 +173,21 @@ def ChunkAnalysis(chunk, max_ID, save_map = False):
 
     #   ------  MAIN FUNCTION
     # Analyse the clusters
-    labels = cc3d.connected_components(chunk, connectivity=4) 
-    labels[labels != 0] += max_ID   # The background cluster is kept to 0
+    labels = cc3d.connected_components(chunk, connectivity=4)
 
-    max_ID = np.max(labels)      # Update the max ID value
+    chunk_data = CreateChunkData(labels)            # local labels
+    chunk_data.index = chunk_data.index + max_ID    # shift to global IDs
 
-    # Create the chunk data: area and perimeter per cluster; and borders
-    chunk_data = CreateChunkData(labels)
+    labels = labels.astype(np.int64)                # avoid uint32 overflow with big offsets
+    labels[labels != 0] += max_ID
+
+    max_ID += len(chunk_data)                       # running total of clusters
+
     borders = ExtractBorders(labels)
 
-    # If we want to visualize the clusters, then save them directly on top of our data
     if save_map:
-        chunk[:, :] =  labels
-    
+        chunk[:, :] = labels
+
     return chunk_data, borders, max_ID
 #_______________________________________________________________________________________________________________________________________________________
 #-------------------------------------------------------------------------------------------------------------------------------------------------------
@@ -199,6 +210,8 @@ if __name__ == "__main__":
     p = 0.35                                        
     data = np.random.binomial(1, 1-p, size=(N, 3*N))
 
+
+    original = data.copy() 
     chunk_data_list = list()
     borders_list = list()
     max_ID = 0
@@ -206,19 +219,22 @@ if __name__ == "__main__":
     for s in range(0, 3*N, chunk_size):
         # WARNING: idk but it feels weird I have to do this to itterate over a __ horizontal array
         temp_data, temp_borders, temp_ID = ChunkAnalysis(CreateChunk(data, (0, s), chunk_size), max_ID, True)
-
-        max_ID += temp_ID
         chunk_data_list.append(temp_data)
         borders_list.append(temp_borders)
+
+        max_ID = temp_ID
 
     
     matches_list = list()
     
     # Relate the borders
     # TODO: this is kinda important: propose the algorithm to select the borders
-    matches_list.extend(BordersCheck(borders_list[0][1], borders_list[1][3]))
-    matches_list.extend(BordersCheck(borders_list[1][1], borders_list[2][3]))
-    matches_list = ConnectedComponents(matches_list)                            # Merge all the data of all the borders
+    seams = np.concatenate([
+        BordersCheck(borders_list[0][1], borders_list[1][3]),
+        BordersCheck(borders_list[1][1], borders_list[2][3]),
+    ])
+    pairs = [tuple(p) for p in np.unique(seams[:, :2], axis=0).tolist()]
+    matches_list = ConnectedComponents(pairs)                            # Merge all the data of all the borders
     print(matches_list)
 
     # Merge the chunks dataframes
@@ -240,7 +256,7 @@ if __name__ == "__main__":
 
 
     # Change the data according to the borders data
-    merged_data = MergeBordersData(merged_data, matches_list, data)
+    merged_data = MergeBordersData(merged_data, matches_list, seams, data)
 
     print("-"*30, "\n")
     print("DATAFRAME AFTER")
