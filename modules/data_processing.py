@@ -138,7 +138,35 @@ def ChunkAnalysis(chunk, max_ID, save_map = False):
     return chunk_data, borders, max_ID
 #_______________________________________________________________________________________________________________________________________________________
 #-------------------------------------------------------------------------------------------------------------------------------------------------------
-            
+
+
+
+#-------------------------------------------------------------------------------------------------------------------------------------------------------
+def MergeChunks(chunk_data, merges, grid = None):
+    """ Takes the chunk data (DataFrame), the Connected Components list [Optionally: the grid]
+    and performs the calculations to merge the information of the different chunks. Returns:
+
+    -> A new DataFrame with all the data of all the chunks """
+    
+    rows = list()       # The rows of the final DataFrame
+    
+    # Merges is a list of tuples, each one with the labels of the connecting clusters
+    for relations in merges:
+
+        # Every row whose index appears in relations, will be merged into a single row. 
+        # -> The new index will be the max index 
+        # -> The `area` and `adjacent_pairs` column will just be the sum of the original one
+        # This new row will be appended to `rows`, and the ones used to built it (whose indexes is in `relations`
+        # will be deleted.
+
+
+
+#-------------------------------------------------------------------------------------------------------------------------------------------------------
+
+
+
+
+
 
 
 
@@ -169,11 +197,21 @@ if __name__ == "__main__":
         chunk_data_list.append(temp_data)
         borders_list.append(temp_borders)
 
+   
+    # Merge the data into a single dataframe
+    chunk_data = pd.concat(chunk_data_list)
     
+    # Match the borders labels
     matches_list = list()
 
     matches_list.extend(BordersCheck(borders_list[0][1], borders_list[1][3]))
     matches_list.extend(BordersCheck(borders_list[1][1], borders_list[2][3]))
+
+    print(matches_list)     # This one is before the global merge
+
+    # Run Connected Componenets over the list of all borders once more
+    # to connect the different borders
+    matches_list = ConnectedComponents(matches_list)        # This one is after the global merge
 
     print(matches_list)
 
