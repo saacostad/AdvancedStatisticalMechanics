@@ -101,8 +101,44 @@ def BordersCheck(border1, border2):
     pairs = list(zip(border1[mask], border2[mask]))
 
     # Here I group the different 2D tuples to general tuples with all the related clusters
-
     return ConnectedComponents(pairs)
+#-------------------------------------------------------------------------------------------------------------------------------------------------------
+
+
+
+#-------------------------------------------------------------------------------------------------------------------------------------------------------
+def MergeBordersData(chunk_data, merges, grid = False):
+    """ Takes the dataframe of all data and operates its' rows according to the relations found during the border check. 
+
+        INPUTS:
+        -> chunk_data: DataFrame with rows area and adjacent_pairs. The index correspond to the cluster number ID.
+        -> merges: set of tuples with integers (IDs of the chunk_data DataFrame). Every tuple indicates all the IDs are related
+
+        RETURNS: Nothing, it just modifies the chunk_data DataFrame
+    """
+    
+    # We'll iterate over each relation group
+    for group in merges:
+        
+        group = np.asarray(group, dtype=int) 
+        new_ID = np.max(group)  # The new ID of the whole group will be the max ID of it 
+        
+        # Sum up the rows
+        merged_row = chunk_data.loc[group].sum(numeric_only=True)
+        merged_row["ID"] = new_ID 
+
+        chunk_data = chunk_data.drop(group)
+        chunk_data.loc[new_ID] = merged_row
+
+
+        # For visualization: make the original 2D grid change it's labels
+        if type(grid) != bool:
+            grid[np.isin(grid, group)] = new_ID
+
+    
+    return chunk_data 
+
+
 #-------------------------------------------------------------------------------------------------------------------------------------------------------
 
 
@@ -110,7 +146,13 @@ def BordersCheck(border1, border2):
 #_______________________________________________________________________________________________________________________________________________________
 #-------------------------------------------------------------------------------------------------------------------------------------------------------
 def ChunkAnalysis(chunk, max_ID, save_map = False):
-    """ This function will take a chunk 2D numpy array, and process it. Returns
+    """ This function will take a chunk 2D numpy array, and process it. 
+        
+        INPUTS:
+        -> chunk: the binary 2D numpy array
+        -> max_ID: the current max ID of the clusters, so every chunk has different IDs
+
+        RETURNS:
         -> A Pandas dataframe with the geometrical data
         -> A list of lists of lists of the borders of the chunk (top, right, bottom, left)
         -> The max_ID of the cluster for the given chunk
@@ -138,35 +180,7 @@ def ChunkAnalysis(chunk, max_ID, save_map = False):
     return chunk_data, borders, max_ID
 #_______________________________________________________________________________________________________________________________________________________
 #-------------------------------------------------------------------------------------------------------------------------------------------------------
-
-
-
-#-------------------------------------------------------------------------------------------------------------------------------------------------------
-def MergeChunks(chunk_data, merges, grid = None):
-    """ Takes the chunk data (DataFrame), the Connected Components list [Optionally: the grid]
-    and performs the calculations to merge the information of the different chunks. Returns:
-
-    -> A new DataFrame with all the data of all the chunks """
-    
-    rows = list()       # The rows of the final DataFrame
-    
-    # Merges is a list of tuples, each one with the labels of the connecting clusters
-    for relations in merges:
-
-        # Every row whose index appears in relations, will be merged into a single row. 
-        # -> The new index will be the max index 
-        # -> The `area` and `adjacent_pairs` column will just be the sum of the original one
-        # This new row will be appended to `rows`, and the ones used to built it (whose indexes is in `relations`
-        # will be deleted.
-
-
-
-#-------------------------------------------------------------------------------------------------------------------------------------------------------
-
-
-
-
-
+            
 
 
 
@@ -178,7 +192,7 @@ def MergeChunks(chunk_data, merges, grid = None):
 
 if __name__ == "__main__":
     
-    # TODO: this is probably gonna be stolenfor the main script
+    # HACK: this is probably gonna be stolen for the main script
     N = 15
     chunk_size = 15
 
@@ -197,25 +211,43 @@ if __name__ == "__main__":
         chunk_data_list.append(temp_data)
         borders_list.append(temp_borders)
 
-   
-    # Merge the data into a single dataframe
-    chunk_data = pd.concat(chunk_data_list)
     
-    # Match the borders labels
     matches_list = list()
-
+    
+    # Relate the borders
+    # TODO: this is kinda important: propose the algorithm to select the borders
     matches_list.extend(BordersCheck(borders_list[0][1], borders_list[1][3]))
     matches_list.extend(BordersCheck(borders_list[1][1], borders_list[2][3]))
-
-    print(matches_list)     # This one is before the global merge
-
-    # Run Connected Componenets over the list of all borders once more
-    # to connect the different borders
-    matches_list = ConnectedComponents(matches_list)        # This one is after the global merge
-
+    matches_list = ConnectedComponents(matches_list)                            # Merge all the data of all the borders
     print(matches_list)
 
+    # Merge the chunks dataframes
+    merged_data = pd.concat(chunk_data_list, ignore_index=False)
+    del chunk_data_list # Free space
+   
+
+
+
+    print("-"*30, "\n")
+    print("DATAFRAME BEFORE")
+    print(merged_data)
+    print("\n", "-"*30)
+
     plt.imshow(data)
+    plt.title("before merging")
     plt.show()
 
+
+
+    # Change the data according to the borders data
+    merged_data = MergeBordersData(merged_data, matches_list, data)
+
+    print("-"*30, "\n")
+    print("DATAFRAME AFTER")
+    print(merged_data)
+    print("\n", "-"*30)
+
+    plt.imshow(data)
+    plt.title("after merging")
+    plt.show()
 
