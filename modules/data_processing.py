@@ -2,27 +2,57 @@ import matplotlib.pyplot as plt         # Only needed to excecute tests
 
 import numpy as np
 import pandas as pd
-import cc3d         # Library for 4-neighbour components
+from collections import defaultdict     # Important for the union find algorithm
+import cc3d                             # Library for 4-neighbour components
+
 
 
 #-------------------------------------------------------------------------------------------------------------------------------------------------------
-def perimeter(matrix, ID):
+def ConnectedComponents(pairs):
+    """ Using the union-find algorithm, this functions takes a set of general tuples
+    and returns a list of general tuples with all the related elements """
+
+    parent = {}
+    
+    def find(x):
+        if parent[x] != x:
+            parent[x] = find(parent[x])
+        return parent[x]
+
+    def union(x, y):
+        px, py = find(x), find(y)
+        if px != py:
+            parent[px] = py
+
+    for t in pairs:
+        if not t: continue
+        first = t[0]
+        if first not in parent: parent[first] = first
+        for x in t[1:]:
+            if x not in parent: parent[x] = x
+            union(first, x)
+
+    groups = defaultdict(list)
+    for x in parent:
+        groups[find(x)].append(x)
+        
+    # Sort for deterministic output (optional)
+    return [tuple(sorted(g)) for g in groups.values()]
+
+#-------------------------------------------------------------------------------------------------------------------------------------------------------
+
+
+
+#-------------------------------------------------------------------------------------------------------------------------------------------------------
+def CalculateAdjacentPairs(matrix, ID):
     """ Finds the perimeter of a cluster """
     matrix = matrix == ID                   # Mask all data other than the ID
 
-    # Count exposed edges in each direction
-    p = 0
+    horizontal = np.sum(matrix[:, :-1] * matrix[:, 1:])
+    vertical = np.sum(matrix[:-1, :] * matrix[1:, :])
 
-    p += np.sum(matrix[0, :])       # Top boundary
-    p += np.sum(matrix[-1, :])      # Bottom boundary
-    p += np.sum(matrix[:, 0])       # Left boundary
-    p += np.sum(matrix[:, -1])     # Right boundary
+    return horizontal + vertical
 
-    # Internal edges
-    p += np.sum(matrix[1:, :] != matrix[:-1, :])  # Vertical
-    p += np.sum(matrix[:, 1:] != matrix[:, :-1])  # Horizontal
-
-    return p
 #-------------------------------------------------------------------------------------------------------------------------------------------------------
 
 
@@ -43,14 +73,13 @@ def CreateChunkData(labels):
     
     # Count the # of pixels with a given value (clusters)
     IDs, area = np.unique(labels, return_counts=True)
-    perimeters = [perimeter(labels, ID) for ID in IDs]
+    adjacent_pairs = [CalculateAdjacentPairs(labels, ID) for ID in IDs]
 
     # Create a pandas data-frame with the data
     return pd.DataFrame({
         "ID": IDs.astype(int),
         "area": area.astype(int),
-        "perimeter": perimeters,
-        "previous_label": None
+        "adjacent_pairs": adjacent_pairs,
     }).set_index("ID").drop(0) 
 #-------------------------------------------------------------------------------------------------------------------------------------------------------
 
@@ -65,16 +94,15 @@ def ExtractBorders(labels):
 
 
 #-------------------------------------------------------------------------------------------------------------------------------------------------------
-def BordersUnion(borders, chunks):
-    """ Takes the borders and data structures and merges the cluster information of the borders together """
+def BordersCheck(border1, border2):
+    """ Takes 2 borders (numpy arrays) and returns a list of tuples with the IDs that collide with each other """
+    # Pretty straightforward no need to explain
+    mask = (border1 != 0) & (border2 != 0)
+    pairs = list(zip(border1[mask], border2[mask]))
 
-    # Save the shape: shall be Nx, Ny, 4, chunk_size
-    Nx, Ny, _, _ = borders.shape
+    # Here I group the different 2D tuples to general tuples with all the related clusters
 
-    for i in range(Nx):
-        for j in range(Ny):
-            return
-
+    return ConnectedComponents(pairs)
 #-------------------------------------------------------------------------------------------------------------------------------------------------------
 
 
@@ -82,15 +110,15 @@ def BordersUnion(borders, chunks):
 #_______________________________________________________________________________________________________________________________________________________
 #-------------------------------------------------------------------------------------------------------------------------------------------------------
 def ChunkAnalysis(chunk, max_ID, save_map = False):
-    """ This function will take a big 2D numpy array, and process it. Returns
-        -> A dictionary with the statistical data
-        #TODO: will have to add the big-chunk processing too, or maybe directly write to memory the results of the current chunk processing
+    """ This function will take a chunk 2D numpy array, and process it. Returns
+        -> A Pandas dataframe with the geometrical data
+        -> A list of lists of lists of the borders of the chunk (top, right, bottom, left)
+        -> The max_ID of the cluster for the given chunk
     """
 
     # This borders list has indexes up, right, down, left
     borders_list = list()                               # I will initialize a list of borders for each one of the chunks divisions. 
     chunks_data_list = list()                           # List with the dicts of each chunk's clusters parameters
-
 
     #   ------  MAIN FUNCTION
     # Analyse the clusters
@@ -107,22 +135,49 @@ def ChunkAnalysis(chunk, max_ID, save_map = False):
     if save_map:
         chunk[:, :] =  labels
     
-    print(chunk_data)
-    plt.imshow(chunk)
-    plt.show()
     return chunk_data, borders, max_ID
 #_______________________________________________________________________________________________________________________________________________________
 #-------------------------------------------------------------------------------------------------------------------------------------------------------
             
 
 
+
+
+
+# ==========================
+#   MAIN TEST EXECUTION
+# ==========================
+
+if __name__ == "__main__":
     
-N = 40
-chunk_size = 20
+    # TODO: this is probably gonna be stolenfor the main script
+    N = 15
+    chunk_size = 15
 
-p = 0.20                                        
-data = np.random.binomial(1, 1-p, size=(N, N))
+    p = 0.35                                        
+    data = np.random.binomial(1, 1-p, size=(N, 3*N))
 
-ChunkAnalysis(CreateChunk(data, (0, 0), chunk_size), 0, True)
+    chunk_data_list = list()
+    borders_list = list()
+    max_ID = 0
+
+    for s in range(0, 3*N, chunk_size):
+        # WARNING: idk but it feels weird I have to do this to itterate over a __ horizontal array
+        temp_data, temp_borders, temp_ID = ChunkAnalysis(CreateChunk(data, (0, s), chunk_size), max_ID, True)
+
+        max_ID += temp_ID
+        chunk_data_list.append(temp_data)
+        borders_list.append(temp_borders)
+
+    
+    matches_list = list()
+
+    matches_list.extend(BordersCheck(borders_list[0][1], borders_list[1][3]))
+    matches_list.extend(BordersCheck(borders_list[1][1], borders_list[2][3]))
+
+    print(matches_list)
+
+    plt.imshow(data)
+    plt.show()
 
 
