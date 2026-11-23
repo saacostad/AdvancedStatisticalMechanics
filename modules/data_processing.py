@@ -178,7 +178,7 @@ def ChunkAnalysis(chunk, max_ID, save_map = False):
     chunk_data = CreateChunkData(labels)            # local labels
     chunk_data.index = chunk_data.index + max_ID    # shift to global IDs
 
-    labels = labels.astype(np.int64)                # avoid uint32 overflow with big offsets
+    labels = labels.astype(np.int64)                # Big integers to avoid overflow
     labels[labels != 0] += max_ID
 
     max_ID += len(chunk_data)                       # running total of clusters
@@ -204,11 +204,11 @@ def ChunkAnalysis(chunk, max_ID, save_map = False):
 if __name__ == "__main__":
     
     # HACK: this is probably gonna be stolen for the main script
-    N = 15
-    chunk_size = 15
+    N = 50
+    chunk_size = 100
 
-    p = 0.35                                        
-    data = np.random.binomial(1, 1-p, size=(N, 3*N))
+    p = 0.592746                                        
+    data = np.random.binomial(1, 1-p, size=(N * chunk_size, N * chunk_size))
 
 
     original = data.copy() 
@@ -216,32 +216,46 @@ if __name__ == "__main__":
     borders_list = list()
     max_ID = 0
 
-    for s in range(0, 3*N, chunk_size):
-        # WARNING: idk but it feels weird I have to do this to itterate over a __ horizontal array
-        temp_data, temp_borders, temp_ID = ChunkAnalysis(CreateChunk(data, (0, s), chunk_size), max_ID, True)
-        chunk_data_list.append(temp_data)
-        borders_list.append(temp_borders)
+    for i in range(N):
 
-        max_ID = temp_ID
+        horizontal_borders_list = list()
+        horizontal_data_list = list()
 
+        for j in range(N):
+            temp_data, temp_borders, temp_ID = ChunkAnalysis(CreateChunk(data, (j * chunk_size, i * chunk_size), chunk_size), max_ID, True)
+            horizontal_data_list.append(temp_data)
+            horizontal_borders_list.append(temp_borders)
+
+            max_ID = temp_ID
+        
+        borders_list.append(horizontal_borders_list)
+        chunk_data_list.append(horizontal_data_list)
     
     matches_list = list()
     
     # Relate the borders
     # TODO: this is kinda important: propose the algorithm to select the borders
-    seams = np.concatenate([
-        BordersCheck(borders_list[0][1], borders_list[1][3]),
-        BordersCheck(borders_list[1][1], borders_list[2][3]),
-    ])
+
+    
+    # Create all the needed borders
+    seams = []
+    for i in range(N-1):
+        for j in range(N):      # horizontal neighbors: right of (i,j) vs left of (i,j+1)
+            seams.append(BordersCheck(borders_list[i][j][1], borders_list[i+1][j][3]))
+
+    for i in range(N):
+        for j in range(N-1):        # vertical neighbors: bottom of (i,j) vs top of (i+1,j)
+            seams.append(BordersCheck(borders_list[i][j][2], borders_list[i][j+1][0]))
+    
+    seams = np.concatenate(seams)
+    print(seams)
+
     pairs = [tuple(p) for p in np.unique(seams[:, :2], axis=0).tolist()]
     matches_list = ConnectedComponents(pairs)                            # Merge all the data of all the borders
-    print(matches_list)
 
     # Merge the chunks dataframes
-    merged_data = pd.concat(chunk_data_list, ignore_index=False)
-    del chunk_data_list # Free space
-   
-
+    flat_data = [df for row in chunk_data_list for df in row]
+    merged_data = pd.concat(flat_data, ignore_index=False)
 
 
     print("-"*30, "\n")
@@ -267,3 +281,6 @@ if __name__ == "__main__":
     plt.title("after merging")
     plt.show()
 
+    merged_data.hist(bins = 50, figsize=(12, 4), layout=(1, 3))
+    plt.tight_layout()
+    plt.show()
